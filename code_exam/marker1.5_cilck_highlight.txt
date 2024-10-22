@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uploaded Image</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .marker-set-A {
+            background-color: rgba(255, 0, 0, 0.5); /* Red */
+        }
+
+        .marker-set-B {
+            background-color: rgba(0, 255, 0, 0.5); /* Green */
+        }
+
+        .marker-set-C {
+            background-color: rgba(0, 0, 255, 0.5); /* Blue */
+        }
+
+        .highlighted {
+            border: 2px solid yellow; /* Highlight color */
+        }
+    </style>
+</head>
+<body>
+    <h2>ภาพบู๊ทภายในงาน</h2>
+    <div class="image-container" style="position: relative; display: inline-block;">
+        <img src="/GetImages/GetPathfileByID?id=@Model.id_event&TableName=mas_event&uploadtype=cover" alt="Uploaded Image" style="display: block; max-width: 100%; height: auto;" />
+    </div>
+
+    <div class="addMarker" id="addMarkPanel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 10px 20px; background-color: rgba(255, 0, 0, 0.5); color: white; font-size: 16px; border-radius: 5px;">
+        <div>Detail: <input type="text" id="detail" /></div>
+        <div>
+            Set:
+            <label><input type="radio" name="markerSet" value="A" checked> A</label>
+            <label><input type="radio" name="markerSet" value="B"> B</label>
+            <label><input type="radio" name="markerSet" value="C"> C</label>
+        </div>
+        <input type="button" name="addMarkerBtn" id="addMarkerBtn" value="Save" />
+    </div>
+
+    <input type="button" name="addMark" id="addMark" value="Add" onclick="showAddMark()" />
+    <input type="hidden" name="markCountA" id="markCountA" value="0">
+    <input type="hidden" name="markCountB" id="markCountB" value="0">
+    <input type="hidden" name="markCountC" id="markCountC" value="0">
+
+    <h3>Marker List</h3>
+    <ul id="markerList"></ul>
+
+    <script>function showAddMark() {
+            $('#addMarkPanel').show();
+        }
+
+        $(document).ready(function () {
+            let markerCountA = 0;
+            let markerCountB = 0;
+            let markerCountC = 0;
+            let isDragging = false;
+            let currentMarker = null;
+            let offsetX = 0;
+            let offsetY = 0;
+
+            // Load markers from local storage
+            loadMarkers();
+
+            $('#addMarkerBtn').click(function () {
+                const selectedSet = $('input[name="markerSet"]:checked').val();
+                let newMarker;
+
+                if (selectedSet === 'A') {
+                    markerCountA++;
+                    newMarker = createMarker('A' + markerCountA, 'Marker ' + markerCountA, selectedSet);
+                    $('#markCountA').val(markerCountA);
+                } else if (selectedSet === 'B') {
+                    markerCountB++;
+                    newMarker = createMarker('B' + markerCountB, 'Marker ' + markerCountB, selectedSet);
+                    $('#markCountB').val(markerCountB);
+                } else if (selectedSet === 'C') {
+                    markerCountC++;
+                    newMarker = createMarker('C' + markerCountC, 'Marker ' + markerCountC, selectedSet);
+                    $('#markCountC').val(markerCountC);
+                }
+
+                $('.image-container').append(newMarker);
+                attachDragHandlers(newMarker);
+                saveMarkers();
+                $('#addMarkPanel').hide();
+            });
+
+            function createMarker(id, text, set, left = '50%', top = '50%') {
+                const detailValue = document.getElementById('detail').value;
+                return $(`
+                        <div class="marker marker-set-${set}" id="marker${id}" data-detail="${detailValue}" style="left: ${left}; top: ${top}; position: absolute; transform: translate(-50%, -50%); padding: 10px 20px; color: white; font-size: 16px; border-radius: 5px; cursor: move;">
+                            <div>${text.replace('Marker', '')}</div>
+                        </div>`
+                );
+            }
+
+            function attachDragHandlers(marker) {
+                marker.on('mousedown', function (e) {
+                    isDragging = true;
+                    currentMarker = $(this);
+                    offsetX = e.clientX - currentMarker.position().left;
+                    offsetY = e.clientY - currentMarker.position().top;
+                    currentMarker.css('cursor', 'grabbing');
+                });
+            }
+
+            $(document).on('mousemove', function (e) {
+                if (isDragging && currentMarker) {
+                    const container = currentMarker.parent();
+                    const containerOffset = container.offset();
+                    let newLeft = e.clientX - containerOffset.left - offsetX;
+                    let newTop = e.clientY - containerOffset.top - offsetY;
+
+                    // Ensure the marker stays within the container
+                    newLeft = Math.max(0, Math.min(newLeft, container.width() - currentMarker.outerWidth()));
+                    newTop = Math.max(0, Math.min(newTop, container.height() - currentMarker.outerHeight()));
+
+                    currentMarker.css({ left: newLeft + 'px', top: newTop + 'px' });
+                }
+            });
+
+            $(document).on('mouseup', function () {
+                if (isDragging && currentMarker) {
+                    isDragging = false;
+                    currentMarker.css('cursor', 'move');
+                    saveMarkers();
+                    currentMarker = null;
+                }
+            });
+
+            function saveMarkers() {
+                const markers = [];
+                $('.marker').each(function () {
+                    const marker = $(this);
+                    const id = marker.attr('id');
+                    const left = marker.css('left');
+                    const top = marker.css('top');
+                    const text = marker.find('div').text().trim(); // Get the text inside the div
+                    const detail = marker.data('detail'); // Retrieve the detail value
+                    const set = marker.hasClass('marker-set-A') ? 'A' : (marker.hasClass('marker-set-B') ? 'B' : 'C');
+                    markers.push({ id, left, top, text, detail, set });
+                });
+                localStorage.setItem('markers', JSON.stringify(markers));
+                renderMarkerList();
+            }
+
+            function loadMarkers() {
+                const markers = JSON.parse(localStorage.getItem('markers')) || [];
+                markers.forEach(marker => {
+                    const newMarker = createMarker(marker.id.replace('marker', ''), marker.text, marker.set, marker.left, marker.top);
+                    newMarker.data('detail', marker.detail); // Set the detail value
+                    $('.image-container').append(newMarker);
+                    attachDragHandlers(newMarker);
+                    attachClickHandlers(newMarker);
+
+                    // Update marker counts
+                    if (marker.set === 'A') {
+                        markerCountA++;
+                    } else if (marker.set === 'B') {
+                        markerCountB++;
+                    } else if (marker.set === 'C') {
+                        markerCountC++;
+                    }
+                });
+
+                $('#markCountA').val(markerCountA);
+                $('#markCountB').val(markerCountB);
+                $('#markCountC').val(markerCountC);
+                renderMarkerList();
+            }
+
+            function attachClickHandlers(marker) {
+                marker.click(function () {
+                    const markerId = $(this).attr('id');
+                    const listItem = $(`#list-${markerId}`);
+                    listItem.toggleClass('highlighted');
+                });
+            }
+
+            function renderMarkerList() {
+                const markerList = $('#markerList');
+                markerList.empty();
+                const markers = JSON.parse(localStorage.getItem('markers')) || [];
+                markers.forEach(marker => {
+                    const left = marker.left.replace('px', '');
+                    const top = marker.top.replace('px', '');
+                    const listItem = `<li id="list-marker${marker.id.replace('marker', '')}">${marker.text.replace('Marker', '')}  ${marker.detail} ชั้น ${marker.set}  X ${left}  Y ${top} </li>`;
+                    markerList.append(listItem);
+                });
+
+                // Attach click handlers to markers
+                $('.marker').each(function () {
+                    attachClickHandlers($(this));
+                });
+            }
+        });</script>
+</body>
+</html>

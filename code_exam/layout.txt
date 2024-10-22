@@ -1,0 +1,15 @@
+export default function App() {
+  return (
+    <View style={{ 
+      backgroundColor: "orange", 
+      flex: 1, 
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems:"center"
+       }}>
+      <View style={{ width: 80, height: 80, backgroundColor: "blue",alignSelf:"flex-start" }}></View>
+      <View style={{ width: 80, height: 80, backgroundColor: "yellow" }}></View>
+      <View style={{ width: 80, height: 80, backgroundColor: "green",alignSelf:"flex-end" }}></View>
+    </View>
+  );
+}
